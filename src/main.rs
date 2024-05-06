@@ -1,5 +1,7 @@
+use crate::connection::Connection;
+use crate::frame::Frame;
 use tokio::io::Result;
-use tokio::net::TcpListener;
+use tokio::net::{TcpListener, TcpStream};
 
 mod connection;
 mod frame;
@@ -20,7 +22,16 @@ async fn main() -> Result<()> {
         let (socket, _) = listener.accept().await?;
 
         tokio::spawn(async move {
-            repl::start_repl(socket);
+            let _ = process(socket).await;
         });
+    }
+}
+
+async fn process(socket: TcpStream) -> Result<()> {
+    let mut connection = Connection::new(socket);
+
+    loop {
+        let maybe_frame: Frame = connection.read_frame().await.unwrap().unwrap();
+        dbg!(maybe_frame);
     }
 }
