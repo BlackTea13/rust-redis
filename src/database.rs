@@ -18,6 +18,14 @@ impl Database {
             map: HashMap::new(),
         }
     }
+
+    pub fn get(&self, key: &String) -> Option<Bytes> {
+        self.map.get(key).cloned()
+    }
+
+    pub fn set(&mut self, key: &String, value: &Bytes) -> Option<Bytes> {
+        self.map.insert(key.clone(), value.clone())
+    }
 }
 
 impl Databases {
