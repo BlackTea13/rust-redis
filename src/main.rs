@@ -1,5 +1,3 @@
-use std::net::SocketAddr;
-
 use crate::connection::Connection;
 use crate::database::Databases;
 use crate::frame::Frame;
