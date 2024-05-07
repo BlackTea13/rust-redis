@@ -1,3 +1,5 @@
+use std::net::SocketAddr;
+
 use crate::connection::Connection;
 use crate::frame::Frame;
 use tokio::io::Result;
@@ -19,19 +21,19 @@ async fn main() -> Result<()> {
     println!("Ready for connections...");
 
     loop {
-        let (socket, _) = listener.accept().await?;
+        let (socket, addr) = listener.accept().await?;
 
         tokio::spawn(async move {
-            let _ = process(socket).await;
+            let _ = process(socket, addr).await;
         });
     }
 }
 
-async fn process(socket: TcpStream) -> Result<()> {
+async fn process(socket: TcpStream, addr: SocketAddr) -> Result<()> {
     let mut connection = Connection::new(socket);
 
     loop {
         let maybe_frame: Frame = connection.read_frame().await.unwrap().unwrap();
-        dbg!(maybe_frame);
+        let _ = connection.write_frame(&maybe_frame).await;
     }
 }

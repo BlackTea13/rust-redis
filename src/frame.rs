@@ -1,7 +1,7 @@
 use bytes::{Buf, Bytes};
 use std::convert::TryInto;
 use std::fmt;
-use std::io::{Cursor, Read};
+use std::io::Cursor;
 use std::num::TryFromIntError;
 use std::string::FromUtf8Error;
 
@@ -34,7 +34,7 @@ impl Frame {
                 Ok(())
             }
             b':' => {
-                let len = get_decimal(src)?;
+                let _ = get_decimal(src)?;
                 Ok(())
             }
             b'$' => {
@@ -60,6 +60,7 @@ impl Frame {
     }
 
     pub fn parse(src: &mut Cursor<&[u8]>) -> Result<Frame, Error> {
+        println!("pure");
         match get_u8(src)? {
             b'+' => {
                 let line = get_line(src)?.to_vec();
@@ -80,7 +81,7 @@ impl Frame {
                     let line = get_line(src)?;
 
                     if line != b"-1" {
-                        return Err("protocol errorl invalid frame formar".into());
+                        return Err("protocol error; invalid frame format".into());
                     }
 
                     Ok(Frame::Null)
@@ -102,9 +103,10 @@ impl Frame {
             b'*' => {
                 let len = get_decimal(src)?.try_into()?;
                 let mut out = Vec::with_capacity(len);
-
                 for _ in 0..len {
-                    out.push(Frame::parse(src)?);
+                    let element = Frame::parse(src)?;
+                    dbg!(&element);
+                    out.push(element);
                 }
 
                 Ok(Frame::Array(out))
@@ -136,7 +138,7 @@ fn get_line<'a>(src: &'a mut Cursor<&[u8]>) -> Result<&'a [u8], Error> {
     let end = src.get_ref().len() - 1;
 
     for i in start..end {
-        if src.get_ref()[i] == b'r' && src.get_ref()[i + 1] == b'\n' {
+        if src.get_ref()[i] == b'\r' && src.get_ref()[i + 1] == b'\n' {
             src.set_position((i + 2) as u64);
 
             return Ok(&src.get_ref()[start..i]);
