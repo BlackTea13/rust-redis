@@ -1,17 +1,24 @@
 use crate::frame::Frame;
 use crate::handler::Handler;
+use crate::parse::Parse;
 use bytes::Bytes;
 use mini_redis::Result;
 
-#[derive(Debug)]
-struct Select {
-    index: u8,
-}
+pub mod ping;
+pub use ping::Ping;
+
+pub mod select;
+pub use select::Select;
+
+pub mod unknown;
+pub use unknown::Unknown;
 
 #[derive(Debug)]
 struct Get {
     key: String,
 }
+
+impl Get {}
 
 #[derive(Debug)]
 struct Set {
@@ -20,12 +27,19 @@ struct Set {
 }
 
 #[derive(Debug)]
-struct Ping {
-    message: String,
-}
+struct Exists {}
 
 #[derive(Debug)]
-struct Exists {}
+struct RPush {}
+
+#[derive(Debug)]
+struct LPush {}
+
+#[derive(Debug)]
+struct BLPop {}
+
+#[derive(Debug)]
+struct BRPop {}
 
 #[derive(Debug)]
 pub enum Command {
@@ -34,25 +48,44 @@ pub enum Command {
     SET(Set),
     PING(Ping),
     EXISTS(Exists),
-    RPUSH,
-    LPUSH,
-    BLPOP,
-    BRPOP,
+    RPUSH(RPush),
+    LPUSH(LPush),
+    BLPOP(BLPop),
+    BRPOP(BRPop),
+    UNKNOWN(Unknown),
 }
 
 impl Command {
-    pub fn from_frame(frame: &Frame) -> Command {
-        Command::GET(Get {
-            key: "appy!".to_string(),
-        })
-    }
-}
+    pub fn from_frame(frame: Frame) -> Result<Command> {
+        let mut parsed = Parse::new(frame)?;
+        let command_frame = parsed.next_string()?.to_lowercase();
 
-impl Select {
-    pub async fn apply(&self, handler: &mut Handler) -> Result<()> {
-        handler.database = handler.databases.index(self.index as usize);
-        let response = Frame::Simple("OK".to_string());
-        handler.connection.write_frame(&response).await?;
-        Ok(())
+        let command = match &command_frame[..] {
+            "select" => Command::SELECT(Select::parse_frames(&mut parsed)?),
+            "ping" => Command::PING(Ping::parse_frame(&mut parsed)?),
+            _ => {
+                return Ok(Command::UNKNOWN(Unknown::new(command_frame)));
+            }
+        };
+
+        parsed.finish()?;
+        Ok(command)
+    }
+
+    pub async fn apply(self, handler: &mut Handler) -> Result<()> {
+        use Command::*;
+
+        match self {
+            SELECT(cmd) => cmd.apply(handler).await,
+            PING(cmd) => cmd.apply(handler).await,
+            GET(cmd) => Ok(()),
+            SET(cmd) => Ok(()),
+            EXISTS(cmd) => Ok(()),
+            RPUSH(cmd) => Ok(()),
+            LPUSH(cmd) => Ok(()),
+            BLPOP(cmd) => Ok(()),
+            BRPOP(cmd) => Ok(()),
+            UNKNOWN(cmd) => cmd.apply(handler).await,
+        }
     }
 }

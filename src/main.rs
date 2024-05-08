@@ -11,6 +11,7 @@ mod connection;
 mod database;
 mod frame;
 mod handler;
+mod parse;
 
 const IP: &str = "127.0.0.1";
 const PORT: &str = "6379";
