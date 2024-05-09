@@ -2,9 +2,12 @@ use crate::connection::Connection;
 use crate::database::Databases;
 use crate::frame::Frame;
 use crate::handler::Handler;
+use bytes::Bytes;
+use command::Command;
+use mini_redis::Result;
 use std::sync::Arc;
-use tokio::io::Result;
 use tokio::net::{TcpListener, TcpStream};
+use tokio::sync::mpsc;
 
 mod command;
 mod connection;
@@ -32,7 +35,8 @@ async fn main() -> Result<()> {
         let handler = Handler {
             databases: Arc::clone(&databases),
             database: databases.index(0),
-            connection,
+            connection: connection,
+            sender: databases.senders[0].clone(),
         };
 
         tokio::spawn(async move {
@@ -43,7 +47,14 @@ async fn main() -> Result<()> {
 
 async fn process(mut handler: Handler) -> Result<()> {
     loop {
-        let maybe_frame: Frame = handler.connection.read_frame().await.unwrap().unwrap();
-        let _ = handler.connection.write_frame(&maybe_frame).await;
+        let maybe_frame: Result<Option<Frame>> = handler.connection.read_frame().await;
+        let maybe_frame = maybe_frame?;
+        let frame = match maybe_frame {
+            Some(frame) => frame,
+            None => return Ok(()),
+        };
+        let command: Command = Command::from_frame(frame)?;
+
+        command.apply(&mut handler).await?;
     }
 }

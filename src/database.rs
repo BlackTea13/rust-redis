@@ -1,6 +1,7 @@
 use bytes::Bytes;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use tokio::sync::mpsc;
 
 #[derive(Debug, Clone)]
 pub struct Database {
@@ -10,6 +11,8 @@ pub struct Database {
 #[derive(Debug)]
 pub struct Databases {
     pub databases: Vec<Arc<Mutex<Database>>>,
+    pub senders: Vec<mpsc::Sender<String>>,
+    pub receivers: Vec<mpsc::Receiver<String>>,
 }
 
 impl Database {
@@ -30,8 +33,19 @@ impl Database {
 
 impl Databases {
     pub fn new() -> Databases {
+        let mut senders: Vec<mpsc::Sender<String>> = Vec::new();
+        let mut receivers: Vec<mpsc::Receiver<String>> = Vec::new();
+
+        for _ in 0..16 {
+            let (tx, rx) = mpsc::channel(64);
+            senders.push(tx);
+            receivers.push(rx);
+        }
+
         Databases {
             databases: vec![Arc::new(Mutex::new(Database::new())); 16],
+            senders: senders,
+            receivers: receivers,
         }
     }
 

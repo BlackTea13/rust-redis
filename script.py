@@ -1,5 +1,11 @@
+import warnings
 import argparse
-import subprocess
+
+# telnetlib might be deprecated for later versions of python,
+# use telnetlib3 in that case.
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
+import telnetlib  # noqa: E402
 
 ########
 # ARGS #
@@ -16,8 +22,10 @@ args = parser.parse_args()
 PORT = args.port
 ADDRESS = args.address
 
+
 def generate_resp(command):
-    command = [cmd.removeprefix('"').removesuffix('"') for cmd in command.split(' ')]
+    command = [cmd.removeprefix('"').removesuffix('"')
+               for cmd in command.split(' ')]
     result = b''
     result += '*{}\r\n'.format(len(command)).encode()
 
@@ -26,12 +34,17 @@ def generate_resp(command):
 
     return result
 
-# Inf input
+
+##########
+# TELNET #
+##########
+
+conn = telnetlib.Telnet(host=ADDRESS, port=PORT)
+
 while True:
     cmd = input("> ")
     resp_input = generate_resp(cmd)
-    subprocess.run([f"nc {ADDRESS} {PORT}"],
-                    shell=True,
-                    capture_output=True,
-                    input=resp_input)
-    print(resp_input)
+    conn.write(resp_input)
+    while len(read := conn.read_until(b'\r\n', 0.05).strip()) > 0:
+        print(read.decode('ascii'))
+    print()

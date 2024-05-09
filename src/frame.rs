@@ -60,7 +60,6 @@ impl Frame {
     }
 
     pub fn parse(src: &mut Cursor<&[u8]>) -> Result<Frame, Error> {
-        println!("pure");
         match get_u8(src)? {
             b'+' => {
                 let line = get_line(src)?.to_vec();

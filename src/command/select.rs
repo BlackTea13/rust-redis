@@ -5,7 +5,7 @@ use mini_redis::Result;
 
 #[derive(Debug)]
 pub struct Select {
-    index: u8,
+    pub index: u8,
 }
 
 impl Select {
