@@ -1,11 +1,12 @@
 use bytes::Bytes;
+use mini_redis::Result;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
 
 #[derive(Debug, Clone)]
 pub struct Database {
-    map: HashMap<String, Bytes>,
+    pub map: HashMap<String, Bytes>,
 }
 
 #[derive(Debug)]
@@ -26,8 +27,9 @@ impl Database {
         self.map.get(key).cloned()
     }
 
-    pub fn set(&mut self, key: &String, value: &Bytes) -> Option<Bytes> {
-        self.map.insert(key.clone(), value.clone())
+    pub fn set(&mut self, key: &String, value: &Bytes) -> Result<()> {
+        self.map.insert(key.clone(), value.clone());
+        Ok(())
     }
 }
 

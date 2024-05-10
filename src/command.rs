@@ -13,18 +13,11 @@ pub use select::Select;
 pub mod unknown;
 pub use unknown::Unknown;
 
-#[derive(Debug)]
-struct Get {
-    key: String,
-}
+pub mod set;
+pub use set::Set;
 
-impl Get {}
-
-#[derive(Debug)]
-struct Set {
-    key: String,
-    value: Bytes,
-}
+pub mod get;
+pub use get::Get;
 
 #[derive(Debug)]
 struct Exists {}
@@ -78,8 +71,8 @@ impl Command {
         match self {
             SELECT(cmd) => cmd.apply(handler).await,
             PING(cmd) => cmd.apply(handler).await,
-            GET(cmd) => Ok(()),
-            SET(cmd) => Ok(()),
+            GET(cmd) => cmd.apply(handler).await,
+            SET(cmd) => cmd.apply(handler).await,
             EXISTS(cmd) => Ok(()),
             RPUSH(cmd) => Ok(()),
             LPUSH(cmd) => Ok(()),
