@@ -1,6 +1,6 @@
 use crate::database::Database;
 use crate::frame::Frame;
-use crate::parse::{Parse, ParseError};
+use crate::parse::Parse;
 use bytes::Bytes;
 use mini_redis::Result;
 use std::sync::Arc;
@@ -18,9 +18,10 @@ impl Set {
         Ok(response)
     }
 
-    pub fn parse_frame(parse: &mut Parse) -> Result<Ping> {
-        match parse.next_string() {
-            Ok(
-        }
+    pub fn parse_frame(parse: &mut Parse) -> Result<Set> {
+        let key = parse.next_string()?;
+        let value = parse.next_bytes()?;
+
+        Ok(Set { key, value })
     }
 }

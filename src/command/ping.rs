@@ -1,4 +1,3 @@
-use crate::connection::Connection;
 use crate::frame::Frame;
 use crate::parse::{Parse, ParseError};
 use bytes::Bytes;

@@ -4,7 +4,7 @@ use crate::frame::Frame;
 use crate::handler::{Handler, Payload};
 use command::Command;
 use mini_redis::Result;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio::sync::{mpsc, oneshot};
 
@@ -65,10 +65,20 @@ async fn process(mut handler: Handler) -> Result<()> {
             Some(frame) => frame,
             None => return Ok(()),
         };
+
+        // handle select
+        if let Command::SELECT(_) = Command::from_frame(frame.clone())? {
+            use crate::command::Select;
+            use crate::parse::Parse;
+
+            let mut input = Parse::new(frame)?;
+            let select = Select::parse_frame(&mut input);
+
+            continue;
+        }
+
         let command: Command = Command::from_frame(frame)?;
-
         let (sender, receiver) = oneshot::channel();
-
         let payload = Payload {
             command: command,
             sender: sender,

@@ -22,6 +22,10 @@ impl State {
     pub fn get(&self, key: &String) -> Option<Bytes> {
         self.state.get(key).cloned()
     }
+
+    pub fn exists(&self, key: &String) -> bool {
+        self.state.contains_key(key)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -43,6 +47,10 @@ impl Database {
     pub fn insert(&self, key: &String, value: &Bytes) -> Result<()> {
         self.database.lock().unwrap().insert(key, value);
         Ok(())
+    }
+
+    pub fn exists(&self, key: &String) -> bool {
+        self.database.lock().unwrap().exists(key)
     }
 }
 
