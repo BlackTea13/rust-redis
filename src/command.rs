@@ -1,8 +1,8 @@
+use crate::database::Database;
 use crate::frame::Frame;
-use crate::handler::Handler;
 use crate::parse::Parse;
-use bytes::Bytes;
 use mini_redis::Result;
+use std::sync::Arc;
 
 pub mod ping;
 pub use ping::Ping;
@@ -56,6 +56,8 @@ impl Command {
         let command = match &command_frame[..] {
             "select" => Command::SELECT(Select::parse_frames(&mut parsed)?),
             "ping" => Command::PING(Ping::parse_frame(&mut parsed)?),
+            "set" => Command::SET(Set::parse_frame(&mut parsed)?),
+            "get" => Command::GET(Get::parse_frame(&mut parsed)?),
             _ => {
                 return Ok(Command::UNKNOWN(Unknown::new(command_frame)));
             }
@@ -65,20 +67,21 @@ impl Command {
         Ok(command)
     }
 
-    pub async fn apply(self, handler: &mut Handler) -> Result<()> {
+    pub async fn apply(self, database: Arc<Database>) -> Result<Frame> {
         use Command::*;
 
-        match self {
-            SELECT(cmd) => cmd.apply(handler).await,
-            PING(cmd) => cmd.apply(handler).await,
-            GET(cmd) => cmd.apply(handler).await,
-            SET(cmd) => cmd.apply(handler).await,
-            EXISTS(cmd) => Ok(()),
-            RPUSH(cmd) => Ok(()),
-            LPUSH(cmd) => Ok(()),
-            BLPOP(cmd) => Ok(()),
-            BRPOP(cmd) => Ok(()),
-            UNKNOWN(cmd) => cmd.apply(handler).await,
-        }
+        dbg!(&self);
+
+        let response = match self {
+            PING(cmd) => cmd.apply().await,
+            GET(cmd) => cmd.apply(database).await,
+            SET(cmd) => cmd.apply(database).await,
+            UNKNOWN(cmd) => cmd.apply().await,
+            _ => Ok(Frame::Simple("OK".to_string())),
+        };
+
+        dbg!(&response);
+
+        return response;
     }
 }

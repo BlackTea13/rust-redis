@@ -1,6 +1,7 @@
+use crate::database::Database;
 use crate::frame::Frame;
-use crate::handler::Handler;
 use mini_redis::Result;
+use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct Get {
@@ -8,13 +9,11 @@ pub struct Get {
 }
 
 impl Get {
-    pub async fn apply(&self, handler: &mut Handler) -> Result<()> {
-        let response = match handler.database.lock().unwrap().get(&self.key) {
-            Some(val) => Frame::Bulk(val),
+    pub async fn apply(&self, db: Arc<Database>) -> Result<Frame> {
+        let response = match db.get(&self.key) {
+            Some(val) => Frame::Bulk(val.clone()),
             None => Frame::Null,
         };
-
-        handler.connection.write_frame(&response).await?;
-        Ok(())
+        Ok(response)
     }
 }

@@ -1,5 +1,4 @@
 use crate::frame::Frame;
-use crate::handler::Handler;
 use mini_redis::Result;
 
 #[derive(Debug)]
@@ -14,9 +13,8 @@ impl Unknown {
         }
     }
 
-    pub async fn apply(&self, handler: &mut Handler) -> Result<()> {
+    pub async fn apply(&self) -> Result<Frame> {
         let response = Frame::Error(format!("Unknown command '{}'", self.command));
-        handler.connection.write_frame(&response).await?;
-        Ok(())
+        Ok(response)
     }
 }

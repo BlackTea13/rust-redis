@@ -1,11 +1,12 @@
 use crate::connection::Connection;
-use crate::database::Databases;
+use crate::database::{Database, Databases};
 use crate::frame::Frame;
-use crate::handler::Handler;
+use crate::handler::{Handler, Payload};
 use command::Command;
 use mini_redis::Result;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use tokio::net::TcpListener;
+use tokio::sync::{mpsc, oneshot};
 
 mod command;
 mod connection;
@@ -16,12 +17,26 @@ mod parse;
 
 const IP: &str = "127.0.0.1";
 const PORT: &str = "6379";
+const NUM_DB: usize = 16;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let address = format!("{IP}:{PORT}");
     let listener = TcpListener::bind(&address).await?;
-    let databases = Arc::new(Databases::new());
+    let databases = Databases::new();
+
+    let mut db_senders = Vec::new();
+
+    for db in 0..NUM_DB {
+        let (tx, rx) = mpsc::channel(32);
+        db_senders.push(tx);
+
+        let database: Arc<Database> = Arc::clone(&databases.databases[db]);
+
+        tokio::spawn(async move {
+            let _ = serve(database, rx).await;
+        });
+    }
 
     println!("Welcome to Robert's Redis Rumble!");
     println!("Ready for connections...");
@@ -31,10 +46,9 @@ async fn main() -> Result<()> {
         let connection = Connection::new(socket);
 
         let handler = Handler {
-            databases: Arc::clone(&databases),
-            database: databases.index(0),
+            database: Arc::clone(&databases.databases[0]),
             connection: connection,
-            sender: databases.senders[0].clone(),
+            sender: db_senders[0].clone(),
         };
 
         tokio::spawn(async move {
@@ -53,6 +67,31 @@ async fn process(mut handler: Handler) -> Result<()> {
         };
         let command: Command = Command::from_frame(frame)?;
 
-        command.apply(&mut handler).await?;
+        let (sender, receiver) = oneshot::channel();
+
+        let payload = Payload {
+            command: command,
+            sender: sender,
+        };
+
+        let _ = handler.sender.send(payload).await?;
+
+        if let Ok(frame) = receiver.await {
+            let frame: Frame = frame;
+            let _ = handler.connection.write_frame(&frame).await?;
+        }
+    }
+}
+
+async fn serve(database: Arc<Database>, mut receiver: mpsc::Receiver<Payload>) {
+    while let Some(payload) = receiver.recv().await {
+        let payload: Payload = payload;
+
+        let response = match payload.command.apply(database.clone()).await {
+            Ok(frame) => frame,
+            Err(_) => Frame::Error("Something went wrong...".to_string()),
+        };
+
+        let _ = payload.sender.send(response);
     }
 }

@@ -2,56 +2,59 @@ use bytes::Bytes;
 use mini_redis::Result;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use tokio::sync::mpsc;
+
+#[derive(Debug)]
+pub struct State {
+    state: HashMap<String, Bytes>,
+}
+
+impl State {
+    pub fn new() -> State {
+        return State {
+            state: HashMap::new(),
+        };
+    }
+
+    pub fn insert(&mut self, key: &String, value: &Bytes) -> Option<Bytes> {
+        self.state.insert(key.clone(), value.clone())
+    }
+
+    pub fn get(&self, key: &String) -> Option<Bytes> {
+        self.state.get(key).cloned()
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct Database {
-    pub map: HashMap<String, Bytes>,
-}
-
-#[derive(Debug)]
-pub struct Databases {
-    pub databases: Vec<Arc<Mutex<Database>>>,
-    pub senders: Vec<mpsc::Sender<String>>,
-    pub receivers: Vec<mpsc::Receiver<String>>,
+    pub database: Arc<Mutex<State>>,
 }
 
 impl Database {
     pub fn new() -> Database {
         Database {
-            map: HashMap::new(),
+            database: Arc::new(Mutex::new(State::new())),
         }
     }
 
     pub fn get(&self, key: &String) -> Option<Bytes> {
-        self.map.get(key).cloned()
+        self.database.lock().unwrap().get(key)
     }
 
-    pub fn set(&mut self, key: &String, value: &Bytes) -> Result<()> {
-        self.map.insert(key.clone(), value.clone());
+    pub fn insert(&self, key: &String, value: &Bytes) -> Result<()> {
+        self.database.lock().unwrap().insert(key, value);
         Ok(())
     }
 }
 
+#[derive(Debug)]
+pub struct Databases {
+    pub databases: Vec<Arc<Database>>,
+}
+
 impl Databases {
     pub fn new() -> Databases {
-        let mut senders: Vec<mpsc::Sender<String>> = Vec::new();
-        let mut receivers: Vec<mpsc::Receiver<String>> = Vec::new();
-
-        for _ in 0..16 {
-            let (tx, rx) = mpsc::channel(64);
-            senders.push(tx);
-            receivers.push(rx);
-        }
-
         Databases {
-            databases: vec![Arc::new(Mutex::new(Database::new())); 16],
-            senders: senders,
-            receivers: receivers,
+            databases: vec![Arc::new(Database::new()); 16],
         }
-    }
-
-    pub fn index(&self, index: usize) -> Arc<Mutex<Database>> {
-        Arc::clone(&self.databases[index])
     }
 }

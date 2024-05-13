@@ -14,10 +14,10 @@ impl Select {
         Ok(Select { index: index as u8 })
     }
 
-    pub async fn apply(&self, handler: &mut Handler) -> Result<()> {
-        handler.database = handler.databases.index(self.index as usize);
-        let response = Frame::Simple("OK".to_string());
-        handler.connection.write_frame(&response).await?;
-        Ok(())
-    }
+    // pub async fn apply(&self, handler: &mut Handler) -> Result<()> {
+    //     handler.database = handler.databases.index(self.index as usize);
+    //     let response = Frame::Simple("OK".to_string());
+    //     handler.connection.write_frame(&response).await?;
+    //     Ok(())
+    // }
 }

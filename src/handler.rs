@@ -1,20 +1,21 @@
 use crate::command::Command;
 use crate::connection::Connection;
-use crate::database::{Database, Databases};
-use mini_redis::Result;
-use std::sync::{Arc, Mutex};
-use tokio::sync::mpsc;
+use crate::database::Database;
+use crate::frame::Frame;
+use std::sync::Arc;
+use tokio::sync::{mpsc, oneshot};
 
 #[derive(Debug)]
 pub struct Handler {
-    pub databases: Arc<Databases>,
-    pub database: Arc<Mutex<Database>>,
+    pub database: Arc<Database>,
     pub connection: Connection,
-    pub sender: mpsc::Sender<String>,
+    pub sender: mpsc::Sender<Payload>,
 }
 
-impl Handler {
-    pub async fn execute(&self, command: Command) -> Result<()> {
-        Ok(())
-    }
+#[derive(Debug)]
+pub struct Payload {
+    pub command: Command,
+    pub sender: oneshot::Sender<Frame>,
 }
+
+impl Handler {}

@@ -1,7 +1,9 @@
+use crate::database::Database;
 use crate::frame::Frame;
-use crate::handler::Handler;
+use crate::parse::{Parse, ParseError};
 use bytes::Bytes;
 use mini_redis::Result;
+use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct Set {
@@ -10,10 +12,15 @@ pub struct Set {
 }
 
 impl Set {
-    pub async fn apply(&self, handler: &mut Handler) -> Result<()> {
-        let _ = handler.database.lock().unwrap().set(&self.key, &self.value);
+    pub async fn apply(&self, db: Arc<Database>) -> Result<Frame> {
+        let _ = db.insert(&self.key, &self.value);
         let response = Frame::Simple("OK".to_string());
-        handler.connection.write_frame(&response).await?;
-        Ok(())
+        Ok(response)
+    }
+
+    pub fn parse_frame(parse: &mut Parse) -> Result<Ping> {
+        match parse.next_string() {
+            Ok(
+        }
     }
 }

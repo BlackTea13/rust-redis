@@ -1,5 +1,5 @@
+use crate::connection::Connection;
 use crate::frame::Frame;
-use crate::handler::Handler;
 use crate::parse::{Parse, ParseError};
 use bytes::Bytes;
 use mini_redis::Result;
@@ -18,13 +18,12 @@ impl Ping {
         }
     }
 
-    pub async fn apply(&self, handler: &mut Handler) -> Result<()> {
+    pub async fn apply(&self) -> Result<Frame> {
         let response = match &self.message {
             None => Frame::Simple("PONG".to_string()),
             Some(msg) => Frame::Bulk(msg.clone()),
         };
 
-        handler.connection.write_frame(&response).await?;
-        Ok(())
+        Ok(response)
     }
 }
