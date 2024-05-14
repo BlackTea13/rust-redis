@@ -54,7 +54,7 @@ impl Command {
         let command_frame = parsed.next_string()?.to_lowercase();
 
         let command = match &command_frame[..] {
-            "select" => Command::SELECT(Select::parse_frames(&mut parsed)?),
+            "select" => Command::SELECT(Select::parse_frame(&mut parsed)?),
             "ping" => Command::PING(Ping::parse_frame(&mut parsed)?),
             "set" => Command::SET(Set::parse_frame(&mut parsed)?),
             "get" => Command::GET(Get::parse_frame(&mut parsed)?),

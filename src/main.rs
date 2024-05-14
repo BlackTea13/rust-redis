@@ -23,7 +23,7 @@ const NUM_DB: usize = 16;
 async fn main() -> Result<()> {
     let address = format!("{IP}:{PORT}");
     let listener = TcpListener::bind(&address).await?;
-    let databases = Databases::new();
+    let databases = Arc::new(Databases::new());
 
     let mut db_senders = Vec::new();
 
@@ -31,7 +31,7 @@ async fn main() -> Result<()> {
         let (tx, rx) = mpsc::channel(32);
         db_senders.push(tx);
 
-        let database: Arc<Database> = Arc::clone(&databases.databases[db]);
+        let database: Arc<Database> = databases.databases[db].clone();
 
         tokio::spawn(async move {
             let _ = serve(database, rx).await;
@@ -46,18 +46,20 @@ async fn main() -> Result<()> {
         let connection = Connection::new(socket);
 
         let handler = Handler {
-            database: Arc::clone(&databases.databases[0]),
+            database: databases.databases[0].clone(),
             connection: connection,
             sender: db_senders[0].clone(),
         };
 
+        let databases_clone = databases.clone();
+
         tokio::spawn(async move {
-            let _ = process(handler).await;
+            let _ = process(handler, databases_clone).await;
         });
     }
 }
 
-async fn process(mut handler: Handler) -> Result<()> {
+async fn process(mut handler: Handler, databases: Arc<Databases>) -> Result<()> {
     loop {
         let maybe_frame: Result<Option<Frame>> = handler.connection.read_frame().await;
         let maybe_frame = maybe_frame?;
@@ -71,18 +73,16 @@ async fn process(mut handler: Handler) -> Result<()> {
             use crate::command::Select;
             use crate::parse::Parse;
 
-            let mut input = Parse::new(frame)?;
-            let select = Select::parse_frame(&mut input);
-
+            let mut input = Parse::new(frame.clone())?;
+            let select = Select::parse_frame(&mut input)?;
+            let selected_index = select.index;
+            handler.database = Arc::clone(&databases.databases[selected_index as usize]);
             continue;
         }
 
         let command: Command = Command::from_frame(frame)?;
         let (sender, receiver) = oneshot::channel();
-        let payload = Payload {
-            command: command,
-            sender: sender,
-        };
+        let payload = Payload { command, sender };
 
         let _ = handler.sender.send(payload).await?;
 
