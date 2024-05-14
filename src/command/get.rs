@@ -16,10 +16,16 @@ impl Get {
     }
 
     pub async fn apply(&self, db: Arc<Database>) -> Result<Frame> {
-        let response = match db.get(&self.key) {
-            Some(val) => Frame::Bulk(val.clone()),
+        let result = match db.get(&self.key) {
+            Ok(v) => v,
+            Err(e) => return Err(e),
+        };
+
+        let response = match result {
+            Some(val) => Frame::Bulk(val.get_value().clone()),
             None => Frame::Null,
         };
+
         Ok(response)
     }
 }

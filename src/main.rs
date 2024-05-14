@@ -98,7 +98,7 @@ async fn serve(database: Arc<Database>, mut receiver: mpsc::Receiver<Payload>) {
 
         let response = match payload.command.apply(database.clone()).await {
             Ok(frame) => frame,
-            Err(_) => Frame::Error("Something went wrong...".to_string()),
+            Err(e) => Frame::Error(e.to_string()),
         };
 
         let _ = payload.sender.send(response);

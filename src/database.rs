@@ -15,14 +15,34 @@ impl List {
             list: VecDeque::new(),
         };
     }
+
+    fn push_front(&mut self, value: Bytes) {
+        self.list.push_front(value)
+    }
+
+    fn push_back(&mut self, value: Bytes) {
+        self.list.push_back(value)
+    }
+
+    fn pop_front(&mut self) -> Option<Bytes> {
+        self.list.pop_front()
+    }
+
+    fn pop_back(&mut self) -> Option<Bytes> {
+        self.list.pop_back()
+    }
 }
 
 #[derive(Debug, Clone)]
-struct Value {
+pub struct Value {
     value: Bytes,
 }
 
-impl Value {}
+impl Value {
+    pub fn get_value(&self) -> &Bytes {
+        return &self.value;
+    }
+}
 
 #[derive(Debug)]
 enum EntryValue {
@@ -63,32 +83,31 @@ impl State {
         Ok(())
     }
 
-    pub fn lpush(&mut self, key: &String, values: &[&Bytes]) -> Result<()> {
-        let result = match self.state.get(key) {
-            Some(value) => value,
-            None => {
-                let mut list = List::new();
-                values.iter().for_each(|v| list.list.push_front(*v.clone()));
+    pub fn lpush(&mut self, key: &String, values: &[Bytes]) -> Result<()> {
+        let result = if let Some(value) = self.state.get_mut(key) {
+            value
+        } else {
+            let mut list = List::new();
+            values.iter().for_each(|v| list.list.push_front(v.clone()));
 
-                let _ = self.state.insert(key.clone(), EntryValue::List(list));
-                return Ok(());
-            }
+            let _ = self.state.insert(key.clone(), EntryValue::List(list));
+            return Ok(());
         };
 
         match result {
-            EntryValue::List(list) => values.iter().for_each(|v| list.list.push_front(*v.clone())),
+            EntryValue::List(list) => values.iter().for_each(|v| list.push_front(v.clone())),
             EntryValue::Value(_) => return Err("Type Error".into()),
-        }
+        };
 
         return Ok(());
     }
 
-    pub fn rpush(&mut self, key: &String, values: &[&Bytes]) -> Result<()> {
-        let result = match self.state.get(key) {
+    pub fn rpush(&mut self, key: &String, values: &[Bytes]) -> Result<()> {
+        let result = match self.state.get_mut(key) {
             Some(value) => value,
             None => {
                 let mut list = List::new();
-                values.iter().for_each(|v| list.list.push_back(*v.clone()));
+                values.iter().for_each(|v| list.list.push_back(v.clone()));
 
                 let _ = self.state.insert(key.clone(), EntryValue::List(list));
                 return Ok(());
@@ -96,7 +115,7 @@ impl State {
         };
 
         match result {
-            EntryValue::List(list) => values.iter().for_each(|v| list.list.push_back(*v.clone())),
+            EntryValue::List(list) => values.into_iter().for_each(|v| list.push_back(v.clone())),
             EntryValue::Value(_) => return Err("Type Error".into()),
         }
 
@@ -104,26 +123,26 @@ impl State {
     }
 
     pub fn lpop(&mut self, key: &String) -> Result<Option<Bytes>> {
-        let value = match self.state.get(key) {
+        let value = match self.state.get_mut(key) {
             Some(v) => v,
             None => return Ok(None),
         };
 
         match value {
             EntryValue::Value(_) => return Err("Type Error".into()),
-            EntryValue::List(list) => return Ok(list.list.pop_front()),
+            EntryValue::List(list) => return Ok(list.pop_front()),
         }
     }
 
     pub fn rpop(&mut self, key: &String) -> Result<Option<Bytes>> {
-        let value = match self.state.get(key) {
+        let value = match self.state.get_mut(key) {
             Some(v) => v,
             None => return Ok(None),
         };
 
         match value {
             EntryValue::Value(_) => return Err("Type Error".into()),
-            EntryValue::List(list) => return Ok(list.list.pop_back()),
+            EntryValue::List(ref mut list) => return Ok(list.pop_back()),
         }
     }
 
@@ -149,7 +168,7 @@ impl Database {
     }
 
     pub fn set(&self, key: &String, value: &Bytes) -> Result<()> {
-        self.database.lock().unwrap().set(key, value);
+        let _ = self.database.lock().unwrap().set(key, value);
         Ok(())
     }
 
@@ -161,13 +180,13 @@ impl Database {
         self.database.lock().unwrap().rpop(key)
     }
 
-    pub fn lpush(&self, key: &String, values: &[&Bytes]) -> Result<()> {
-        self.database.lock().unwrap().lpush(key, values);
+    pub fn lpush(&self, key: &String, values: &[Bytes]) -> Result<()> {
+        let _ = self.database.lock().unwrap().lpush(key, values);
         Ok(())
     }
 
-    pub fn rpush(&self, key: &String, values: &[&Bytes]) -> Result<()> {
-        self.database.lock().unwrap().rpush(key, values);
+    pub fn rpush(&self, key: &String, values: &[Bytes]) -> Result<()> {
+        let _ = self.database.lock().unwrap().rpush(key, values);
         Ok(())
     }
 

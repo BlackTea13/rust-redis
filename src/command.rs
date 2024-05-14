@@ -22,17 +22,17 @@ pub use get::Get;
 pub mod exists;
 pub use exists::Exists;
 
-#[derive(Debug)]
-struct RPush {}
+pub mod lpush;
+pub use lpush::LPush;
 
-#[derive(Debug)]
-struct LPush {}
+pub mod rpush;
+pub use rpush::RPush;
 
-#[derive(Debug)]
-struct BLPop {}
+pub mod blpop;
+pub use blpop::BLPop;
 
-#[derive(Debug)]
-struct BRPop {}
+pub mod brpop;
+pub use brpop::BRPop;
 
 #[derive(Debug)]
 pub enum Command {
@@ -59,6 +59,10 @@ impl Command {
             "set" => Command::SET(Set::parse_frame(&mut parsed)?),
             "get" => Command::GET(Get::parse_frame(&mut parsed)?),
             "exists" => Command::EXISTS(Exists::parse_frame(&mut parsed)?),
+            "rpush" => Command::RPUSH(RPush::parse_frame(&mut parsed)?),
+            "lpush" => Command::LPUSH(LPush::parse_frame(&mut parsed)?),
+            "brpop" => Command::BRPOP(BRPop::parse_frame(&mut parsed)?),
+            "blpop" => Command::BLPOP(BLPop::parse_frame(&mut parsed)?),
             _ => {
                 return Ok(Command::UNKNOWN(Unknown::new(command_frame)));
             }
