@@ -17,7 +17,7 @@ mod parse;
 
 const IP: &str = "127.0.0.1";
 const PORT: &str = "6379";
-const NUM_DB: usize = 16;
+pub const NUM_DB: usize = 16;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -38,6 +38,8 @@ async fn main() -> Result<()> {
         });
     }
 
+    let db_senders: Vec<mpsc::Sender<Payload>> = db_senders;
+
     println!("Welcome to Robert's Redis Rumble!");
     println!("Ready for connections...");
 
@@ -45,21 +47,22 @@ async fn main() -> Result<()> {
         let (socket, _) = listener.accept().await?;
         let connection = Connection::new(socket);
 
+        let default_sender = db_senders[0].clone();
+
         let handler = Handler {
-            database: databases.databases[0].clone(),
             connection: connection,
-            sender: db_senders[0].clone(),
+            sender: default_sender,
         };
 
-        let databases_clone = databases.clone();
+        let senders_clone = db_senders.clone();
 
         tokio::spawn(async move {
-            let _ = process(handler, databases_clone).await;
+            let _ = process(handler, senders_clone).await;
         });
     }
 }
 
-async fn process(mut handler: Handler, databases: Arc<Databases>) -> Result<()> {
+async fn process(mut handler: Handler, senders: Vec<mpsc::Sender<Payload>>) -> Result<()> {
     loop {
         let maybe_frame: Result<Option<Frame>> = handler.connection.read_frame().await;
         let maybe_frame = maybe_frame?;
@@ -68,19 +71,15 @@ async fn process(mut handler: Handler, databases: Arc<Databases>) -> Result<()> 
             None => return Ok(()),
         };
 
-        // handle select
-        if let Command::SELECT(_) = Command::from_frame(frame.clone())? {
-            use crate::command::Select;
-            use crate::parse::Parse;
+        let command: Command = Command::from_frame(frame)?;
 
-            let mut input = Parse::new(frame.clone())?;
-            let select = Select::parse_frame(&mut input)?;
-            let selected_index = select.index;
-            handler.database = Arc::clone(&databases.databases[selected_index as usize]);
+        // handle select
+        if let Command::SELECT(cmd) = command {
+            handler.sender = senders[cmd.index as usize].clone();
             continue;
         }
+        dbg!(&handler.sender);
 
-        let command: Command = Command::from_frame(frame)?;
         let (sender, receiver) = oneshot::channel();
         let payload = Payload { command, sender };
 

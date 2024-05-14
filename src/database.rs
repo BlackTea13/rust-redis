@@ -1,11 +1,28 @@
+use crate::NUM_DB;
 use bytes::Bytes;
 use mini_redis::Result;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug)]
+struct List {
+    list: Vec<Bytes>,
+}
+
+#[derive(Debug)]
+struct Value {
+    value: Bytes,
+}
+
+#[derive(Debug)]
+enum EntryValue {
+    List(List),
+    Value(Value),
+}
+
+#[derive(Debug)]
 pub struct State {
-    state: HashMap<String, Bytes>,
+    state: HashMap<String, EntryValue>,
 }
 
 impl State {
@@ -15,8 +32,19 @@ impl State {
         };
     }
 
-    pub fn insert(&mut self, key: &String, value: &Bytes) -> Option<Bytes> {
-        self.state.insert(key.clone(), value.clone())
+    pub fn set(&mut self, key: &String, value: &Bytes) -> Result<()> {
+        let value = Value {
+            value: value.clone(),
+        };
+
+        let _ = self.state.insert(key.clone(), EntryValue::Value(value));
+        Ok(())
+    }
+
+    pub fn lpush(&mut self, key: &String, values: &[&Bytes]) -> Result<()> {
+        if self.exists(key) {
+            Err("Type error".into())
+        }
     }
 
     pub fn get(&self, key: &String) -> Option<Bytes> {
@@ -45,7 +73,7 @@ impl Database {
     }
 
     pub fn insert(&self, key: &String, value: &Bytes) -> Result<()> {
-        self.database.lock().unwrap().insert(key, value);
+        self.database.lock().unwrap().insert_bytes(key, value);
         Ok(())
     }
 
@@ -62,7 +90,7 @@ pub struct Databases {
 impl Databases {
     pub fn new() -> Databases {
         Databases {
-            databases: vec![Arc::new(Database::new()); 16],
+            databases: (0..NUM_DB).map(|_| Arc::new(Database::new())).collect(),
         }
     }
 }
