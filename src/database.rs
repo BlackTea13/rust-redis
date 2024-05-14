@@ -1,18 +1,28 @@
 use crate::NUM_DB;
 use bytes::Bytes;
 use mini_redis::Result;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug)]
 struct List {
-    list: Vec<Bytes>,
+    list: VecDeque<Bytes>,
 }
 
-#[derive(Debug)]
+impl List {
+    fn new() -> List {
+        return List {
+            list: VecDeque::new(),
+        };
+    }
+}
+
+#[derive(Debug, Clone)]
 struct Value {
     value: Bytes,
 }
+
+impl Value {}
 
 #[derive(Debug)]
 enum EntryValue {
@@ -32,6 +42,18 @@ impl State {
         };
     }
 
+    pub fn get(&self, key: &String) -> Result<Option<Value>> {
+        let result = match self.state.get(key) {
+            Some(val) => val,
+            None => return Ok(None),
+        };
+
+        match result {
+            EntryValue::Value(val) => Ok(Some(val.clone())),
+            EntryValue::List(_) => return Err("Type error".into()),
+        }
+    }
+
     pub fn set(&mut self, key: &String, value: &Bytes) -> Result<()> {
         let value = Value {
             value: value.clone(),
@@ -42,13 +64,67 @@ impl State {
     }
 
     pub fn lpush(&mut self, key: &String, values: &[&Bytes]) -> Result<()> {
-        if self.exists(key) {
-            Err("Type error".into())
+        let result = match self.state.get(key) {
+            Some(value) => value,
+            None => {
+                let mut list = List::new();
+                values.iter().for_each(|v| list.list.push_front(*v.clone()));
+
+                let _ = self.state.insert(key.clone(), EntryValue::List(list));
+                return Ok(());
+            }
+        };
+
+        match result {
+            EntryValue::List(list) => values.iter().for_each(|v| list.list.push_front(*v.clone())),
+            EntryValue::Value(_) => return Err("Type Error".into()),
+        }
+
+        return Ok(());
+    }
+
+    pub fn rpush(&mut self, key: &String, values: &[&Bytes]) -> Result<()> {
+        let result = match self.state.get(key) {
+            Some(value) => value,
+            None => {
+                let mut list = List::new();
+                values.iter().for_each(|v| list.list.push_back(*v.clone()));
+
+                let _ = self.state.insert(key.clone(), EntryValue::List(list));
+                return Ok(());
+            }
+        };
+
+        match result {
+            EntryValue::List(list) => values.iter().for_each(|v| list.list.push_back(*v.clone())),
+            EntryValue::Value(_) => return Err("Type Error".into()),
+        }
+
+        return Ok(());
+    }
+
+    pub fn lpop(&mut self, key: &String) -> Result<Option<Bytes>> {
+        let value = match self.state.get(key) {
+            Some(v) => v,
+            None => return Ok(None),
+        };
+
+        match value {
+            EntryValue::Value(_) => return Err("Type Error".into()),
+            EntryValue::List(list) => return Ok(list.list.pop_front()),
         }
     }
 
-    pub fn get(&self, key: &String) -> Option<Bytes> {
-        self.state.get(key).cloned()
+    pub fn rpop(&mut self, key: &String) -> Result<Option<Bytes>> {
+        let value = match self.state.get(key) {
+            Some(v) => v,
+            None => return Ok(None),
+        };
+
+        match value {
+            EntryValue::Value(_) => return Err("Type Error".into()),
+            EntryValue::List(list) => return Ok(list.list.pop_back()),
+        }
     }
 
     pub fn exists(&self, key: &String) -> bool {
@@ -68,12 +144,30 @@ impl Database {
         }
     }
 
-    pub fn get(&self, key: &String) -> Option<Bytes> {
+    pub fn get(&self, key: &String) -> Result<Option<Value>> {
         self.database.lock().unwrap().get(key)
     }
 
-    pub fn insert(&self, key: &String, value: &Bytes) -> Result<()> {
-        self.database.lock().unwrap().insert_bytes(key, value);
+    pub fn set(&self, key: &String, value: &Bytes) -> Result<()> {
+        self.database.lock().unwrap().set(key, value);
+        Ok(())
+    }
+
+    pub fn lpop(&self, key: &String) -> Result<Option<Bytes>> {
+        self.database.lock().unwrap().lpop(key)
+    }
+
+    pub fn rpop(&self, key: &String) -> Result<Option<Bytes>> {
+        self.database.lock().unwrap().rpop(key)
+    }
+
+    pub fn lpush(&self, key: &String, values: &[&Bytes]) -> Result<()> {
+        self.database.lock().unwrap().lpush(key, values);
+        Ok(())
+    }
+
+    pub fn rpush(&self, key: &String, values: &[&Bytes]) -> Result<()> {
+        self.database.lock().unwrap().rpush(key, values);
         Ok(())
     }
 
