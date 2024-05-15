@@ -1,5 +1,5 @@
 use crate::parse::Parse;
-use mini_redis::Result;
+use goms_mini_project1::Result;
 
 #[derive(Debug)]
 pub struct Select {

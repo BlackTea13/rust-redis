@@ -1,7 +1,7 @@
 use crate::database::Database;
 use crate::frame::Frame;
 use crate::parse::Parse;
-use mini_redis::Result;
+use goms_mini_project1::Result;
 use std::sync::Arc;
 
 #[derive(Debug)]

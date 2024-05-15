@@ -1,6 +1,5 @@
-use crate::NUM_DB;
 use bytes::Bytes;
-use mini_redis::Result;
+use goms_mini_project1::{Result, NUM_DB};
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
 
@@ -83,7 +82,7 @@ impl State {
         Ok(())
     }
 
-    pub fn lpush(&mut self, key: &String, values: &[Bytes]) -> Result<()> {
+    pub fn lpush(&mut self, key: &String, values: &Vec<Bytes>) -> Result<()> {
         let result = if let Some(value) = self.state.get_mut(key) {
             value
         } else {
@@ -102,7 +101,7 @@ impl State {
         return Ok(());
     }
 
-    pub fn rpush(&mut self, key: &String, values: &[Bytes]) -> Result<()> {
+    pub fn rpush(&mut self, key: &String, values: &Vec<Bytes>) -> Result<()> {
         let result = match self.state.get_mut(key) {
             Some(value) => value,
             None => {
@@ -180,12 +179,12 @@ impl Database {
         self.database.lock().unwrap().rpop(key)
     }
 
-    pub fn lpush(&self, key: &String, values: &[Bytes]) -> Result<()> {
+    pub fn lpush(&self, key: &String, values: &Vec<Bytes>) -> Result<()> {
         let _ = self.database.lock().unwrap().lpush(key, values);
         Ok(())
     }
 
-    pub fn rpush(&self, key: &String, values: &[Bytes]) -> Result<()> {
+    pub fn rpush(&self, key: &String, values: &Vec<Bytes>) -> Result<()> {
         let _ = self.database.lock().unwrap().rpush(key, values);
         Ok(())
     }

@@ -3,7 +3,7 @@ use crate::database::{Database, Databases};
 use crate::frame::Frame;
 use crate::handler::{Handler, Payload};
 use command::Command;
-use mini_redis::Result;
+use goms_mini_project1::{Result, IP, NUM_DB, PORT};
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio::sync::{mpsc, oneshot};
@@ -14,10 +14,6 @@ mod database;
 mod frame;
 mod handler;
 mod parse;
-
-const IP: &str = "127.0.0.1";
-const PORT: &str = "6379";
-pub const NUM_DB: usize = 16;
 
 #[tokio::main]
 async fn main() -> Result<()> {

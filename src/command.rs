@@ -1,7 +1,7 @@
 use crate::database::Database;
 use crate::frame::Frame;
 use crate::parse::Parse;
-use mini_redis::Result;
+use goms_mini_project1::Result;
 use std::sync::Arc;
 
 pub mod ping;
@@ -80,6 +80,10 @@ impl Command {
             GET(cmd) => cmd.apply(database).await,
             SET(cmd) => cmd.apply(database).await,
             EXISTS(cmd) => cmd.apply(database).await,
+            LPUSH(cmd) => cmd.apply(database).await,
+            RPUSH(cmd) => cmd.apply(database).await,
+            BLPOP(cmd) => unimplemented!(),
+            BRPOP(cmd) => unimplemented!(),
             UNKNOWN(cmd) => cmd.apply().await,
             _ => Ok(Frame::Simple("OK".to_string())),
         };
