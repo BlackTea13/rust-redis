@@ -35,6 +35,10 @@ impl BLPop {
 
     pub async fn apply(&self, database: Arc<Database>) -> Result<Frame> {
         let mut acc_timeout: f64 = 0.0;
+        let mut sleep_time: f64 = 100.0;
+        if self.timeout == 0.0 {
+            sleep_time = 0.0;
+        }
         loop {
             for key in self.keys.iter() {
                 let result = database.lpop(&key)?;
@@ -45,8 +49,9 @@ impl BLPop {
                     ]));
                 }
             }
-            acc_timeout = acc_timeout + 100.0;
-            let _ = sleep(Duration::from_millis(100));
+
+            acc_timeout = acc_timeout + sleep_time;
+            let _ = sleep(Duration::from_millis(sleep_time as u64)).await;
             if acc_timeout > self.timeout {
                 return Ok(Frame::Null);
             }

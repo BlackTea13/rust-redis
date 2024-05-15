@@ -29,9 +29,7 @@ async fn main() -> Result<()> {
 
         let database: Arc<Database> = databases.databases[db].clone();
 
-        tokio::spawn(async move {
-            let _ = serve(database, rx).await;
-        });
+        tokio::spawn(serve(database, rx));
     }
 
     let db_senders: Vec<mpsc::Sender<Payload>> = db_senders;
@@ -52,9 +50,7 @@ async fn main() -> Result<()> {
 
         let senders_clone = db_senders.clone();
 
-        tokio::spawn(async move {
-            let _ = process(handler, senders_clone).await;
-        });
+        tokio::spawn(process(handler, senders_clone));
     }
 }
 
@@ -91,11 +87,14 @@ async fn serve(database: Arc<Database>, mut receiver: mpsc::Receiver<Payload>) {
     while let Some(payload) = receiver.recv().await {
         let payload: Payload = payload;
 
-        let response = match payload.command.apply(database.clone()).await {
-            Ok(frame) => frame,
-            Err(e) => Frame::Error(e.to_string()),
-        };
+        let db_clone = database.clone();
+        tokio::spawn(async move {
+            let response = match payload.command.apply(db_clone).await {
+                Ok(frame) => frame,
+                Err(e) => Frame::Error(e.to_string()),
+            };
 
-        let _ = payload.sender.send(response);
+            let _ = payload.sender.send(response);
+        });
     }
 }
