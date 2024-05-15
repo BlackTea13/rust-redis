@@ -52,9 +52,9 @@ impl Parse {
 
         const ERR: &str = "protocol error; invalid number";
 
-        let anish = self.next()?;
+        let maybe_int = self.next()?;
 
-        match anish {
+        match maybe_int {
             Frame::Integer(v) => Ok(v),
             Frame::Simple(data) => atoi::<u64>(data.as_bytes()).ok_or_else(|| ERR.into()),
             Frame::Bulk(bytes) => atoi::<u64>(&bytes).ok_or_else(|| ERR.into()),

@@ -74,7 +74,6 @@ async fn process(mut handler: Handler, senders: Vec<mpsc::Sender<Payload>>) -> R
             handler.sender = senders[cmd.index as usize].clone();
             continue;
         }
-        dbg!(&handler.sender);
 
         let (sender, receiver) = oneshot::channel();
         let payload = Payload { command, sender };

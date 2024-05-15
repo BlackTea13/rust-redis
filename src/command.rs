@@ -82,8 +82,8 @@ impl Command {
             EXISTS(cmd) => cmd.apply(database).await,
             LPUSH(cmd) => cmd.apply(database).await,
             RPUSH(cmd) => cmd.apply(database).await,
-            BLPOP(cmd) => unimplemented!(),
-            BRPOP(cmd) => unimplemented!(),
+            BLPOP(cmd) => cmd.apply(database).await,
+            BRPOP(cmd) => cmd.apply(database).await,
             UNKNOWN(cmd) => cmd.apply().await,
             _ => Ok(Frame::Simple("OK".to_string())),
         };
