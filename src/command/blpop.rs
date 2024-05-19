@@ -1,8 +1,10 @@
-use crate::database::Database;
+use crate::command::{Command, LPush, RPush};
+use crate::database::{Client, Database};
 use crate::frame::Frame;
 use crate::parse::Parse;
 use goms_mini_project1::Result;
 use std::sync::Arc;
+use tokio::sync::oneshot;
 use tokio::time::{sleep, Duration};
 
 #[derive(Debug)]
@@ -33,28 +35,30 @@ impl BLPop {
         }
     }
 
+    fn index_of_first_exist(&self, database: Arc<Database>) -> Option<usize> {
+        self.keys.iter().position(|k| database.exists(k))
+    }
+
     pub async fn apply(&self, database: Arc<Database>) -> Result<Frame> {
-        let mut acc_timeout: f64 = 0.0;
-        let mut sleep_time: f64 = 100.0;
-        if self.timeout == 0.0 {
-            sleep_time = 0.0;
-        }
-        loop {
-            for key in self.keys.iter() {
-                let result = database.lpop(&key)?;
-                if let Some(val) = result {
-                    return Ok(Frame::Array(vec![
-                        Frame::Bulk(key.clone().into()),
-                        Frame::Bulk(val),
-                    ]));
+        let is_exist = self.index_of_first_exist(database);
+
+        if matches!(is_exist, None) {
+            let (tx, rx) = oneshot::channel();
+            let client = Client {
+                sender: tx,
+                receiver: rx,
+            };
+            database.clients.push_back(client);
+
+            while let Some(cmd) = rx.recv().await {
+                match cmd {
+                    Command::LPUSH(lpush) => return Ok(Frame::Bulk(lpush.elements.pop
+                    Command::RPUSH(rpush) => todo!(),
+                    _ => todo!(),
                 }
             }
 
-            acc_timeout = acc_timeout + sleep_time;
-            let _ = sleep(Duration::from_millis(sleep_time as u64)).await;
-            if acc_timeout > self.timeout {
-                return Ok(Frame::Null);
-            }
+
         }
     }
 }

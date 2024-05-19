@@ -1,7 +1,9 @@
+use crate::command::Command;
 use bytes::Bytes;
 use goms_mini_project1::{Result, NUM_DB};
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
+use tokio::sync::oneshot;
 
 #[derive(Debug)]
 struct List {
@@ -150,15 +152,23 @@ impl State {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Database {
     pub database: Arc<Mutex<State>>,
+    pub clients: VecDeque<Client>,
+}
+
+#[derive(Debug)]
+pub struct Client {
+    pub sender: oneshot::Sender<Command>,
+    pub receiver: oneshot::Receiver<Command>,
 }
 
 impl Database {
     pub fn new() -> Database {
         Database {
             database: Arc::new(Mutex::new(State::new())),
+            clients: VecDeque::new(),
         }
     }
 
