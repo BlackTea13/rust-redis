@@ -1,11 +1,11 @@
-use crate::command::{Command, LPush, RPush};
-use crate::database::{Client, Database};
+use crate::database::{Client, ClientState, Database};
 use crate::frame::Frame;
 use crate::parse::Parse;
 use goms_mini_project1::Result;
+use std::collections::VecDeque;
 use std::sync::Arc;
-use tokio::sync::oneshot;
-use tokio::time::{sleep, Duration};
+use tokio::sync::mpsc;
+use tokio::time::{timeout, Duration};
 
 #[derive(Debug)]
 pub struct BLPop {
@@ -40,25 +40,47 @@ impl BLPop {
     }
 
     pub async fn apply(&self, database: Arc<Database>) -> Result<Frame> {
-        let is_exist = self.index_of_first_exist(database);
+        let key_index = self.index_of_first_exist(database.clone());
 
-        if matches!(is_exist, None) {
-            let (tx, rx) = oneshot::channel();
+        if matches!(key_index, None) {
+            let (tx, mut rx) = mpsc::channel(1);
             let client = Client {
+                client_state: ClientState::BLPOP,
+                keys: VecDeque::from(self.keys.clone()),
                 sender: tx,
-                receiver: rx,
             };
-            database.clients.push_back(client);
 
-            while let Some(cmd) = rx.recv().await {
-                match cmd {
-                    Command::LPUSH(lpush) => return Ok(Frame::Bulk(lpush.elements.pop
-                    Command::RPUSH(rpush) => todo!(),
-                    _ => todo!(),
+            database.clients.lock().unwrap().push_back(client.into());
+
+            let timeout_duration = if self.timeout <= 0.0 {
+                Duration::MAX
+            } else {
+                Duration::from_millis(self.timeout as u64)
+            };
+
+            let response = match timeout(timeout_duration, rx.recv()).await {
+                Ok(element) => {
+                    return Ok(Frame::Array(vec![
+                        Frame::Bulk(self.keys[key_index.unwrap()].clone().into()),
+                        Frame::Bulk(element.unwrap()),
+                    ]));
                 }
+                Err(_) => Ok(Frame::Null),
+            };
+
+            return response;
+        } else {
+            let key_index = key_index.unwrap();
+            let key = &self.keys[key_index];
+            let result = database.lpop(key)?;
+            if let Some(val) = result {
+                return Ok(Frame::Array(vec![
+                    Frame::Bulk(key.clone().into()),
+                    Frame::Bulk(val),
+                ]));
+            } else {
+                return Err("Key exists but lpop failed".into());
             }
-
-
         }
     }
 }

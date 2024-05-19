@@ -1,9 +1,11 @@
-use crate::database::Database;
+use crate::database::{Client, ClientState, Database};
 use crate::frame::Frame;
 use crate::parse::Parse;
 use goms_mini_project1::Result;
+use std::collections::VecDeque;
 use std::sync::Arc;
-use tokio::time::{sleep, Duration};
+use tokio::sync::mpsc;
+use tokio::time::{timeout, Duration};
 
 #[derive(Debug)]
 pub struct BRPop {
@@ -33,27 +35,52 @@ impl BRPop {
         }
     }
 
+    fn index_of_first_exist(&self, database: Arc<Database>) -> Option<usize> {
+        self.keys.iter().position(|k| database.exists(k))
+    }
+
     pub async fn apply(&self, database: Arc<Database>) -> Result<Frame> {
-        let mut acc_timeout: f64 = 0.0;
-        let mut sleep_time: f64 = 100.0;
-        if self.timeout == 0.0 {
-            sleep_time = 0.0;
-        }
-        loop {
-            for key in self.keys.iter() {
-                let result = database.rpop(&key)?;
-                if let Some(val) = result {
+        let key_index = self.index_of_first_exist(database.clone());
+
+        if matches!(key_index, None) {
+            let (tx, mut rx) = mpsc::channel(1);
+            let client = Client {
+                client_state: ClientState::BRPOP,
+                keys: VecDeque::from(self.keys.clone()),
+                sender: tx,
+            };
+
+            database.clients.lock().unwrap().push_back(client.into());
+
+            let timeout_duration = if self.timeout <= 0.0 {
+                Duration::MAX
+            } else {
+                Duration::from_millis(self.timeout as u64)
+            };
+
+            let response = match timeout(timeout_duration, rx.recv()).await {
+                Ok(element) => {
+                    database.clients.lock().unwrap().pop_front();
                     return Ok(Frame::Array(vec![
-                        Frame::Bulk(key.clone().into()),
-                        Frame::Bulk(val),
+                        Frame::Bulk(self.keys[key_index.unwrap()].clone().into()),
+                        Frame::Bulk(element.unwrap()),
                     ]));
                 }
-            }
+                Err(_) => Ok(Frame::Null),
+            };
 
-            acc_timeout = acc_timeout + sleep_time;
-            let _ = sleep(Duration::from_millis(sleep_time as u64)).await;
-            if acc_timeout > self.timeout {
-                return Ok(Frame::Null);
+            return response;
+        } else {
+            let key_index = key_index.unwrap();
+            let key = &self.keys[key_index];
+            let result = database.rpop(key)?;
+            if let Some(val) = result {
+                return Ok(Frame::Array(vec![
+                    Frame::Bulk(key.clone().into()),
+                    Frame::Bulk(val),
+                ]));
+            } else {
+                return Err("Key exists but rpop failed".into());
             }
         }
     }

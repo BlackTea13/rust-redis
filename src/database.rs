@@ -1,9 +1,8 @@
-use crate::command::Command;
 use bytes::Bytes;
 use goms_mini_project1::{Result, NUM_DB};
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
-use tokio::sync::oneshot;
+use tokio::sync::mpsc;
 
 #[derive(Debug)]
 struct List {
@@ -148,27 +147,43 @@ impl State {
     }
 
     pub fn exists(&self, key: &String) -> bool {
-        self.state.contains_key(key)
+        let is_some = self.state.get(key).is_some();
+        let not_empty = if let Some(val) = self.state.get(key) {
+            match val {
+                EntryValue::Value(_) => true,
+                EntryValue::List(list) => !list.list.is_empty(),
+            }
+        } else {
+            false
+        };
+        is_some && not_empty
     }
 }
 
 #[derive(Debug)]
 pub struct Database {
     pub database: Arc<Mutex<State>>,
-    pub clients: VecDeque<Client>,
+    pub clients: Arc<Mutex<VecDeque<Arc<Client>>>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
+pub enum ClientState {
+    BLPOP,
+    BRPOP,
+}
+
+#[derive(Debug, Clone)]
 pub struct Client {
-    pub sender: oneshot::Sender<Command>,
-    pub receiver: oneshot::Receiver<Command>,
+    pub client_state: ClientState,
+    pub keys: VecDeque<String>,
+    pub sender: mpsc::Sender<Bytes>,
 }
 
 impl Database {
     pub fn new() -> Database {
         Database {
             database: Arc::new(Mutex::new(State::new())),
-            clients: VecDeque::new(),
+            clients: Arc::new(Mutex::new(VecDeque::new())),
         }
     }
 
@@ -201,6 +216,20 @@ impl Database {
 
     pub fn exists(&self, key: &String) -> bool {
         self.database.lock().unwrap().exists(key)
+    }
+
+    pub fn is_clients_empty(&self) -> bool {
+        self.clients.lock().unwrap().is_empty()
+    }
+
+    pub fn get_clients_waiting_for_key(&self, key: &String) -> VecDeque<Arc<Client>> {
+        self.clients
+            .lock()
+            .unwrap()
+            .clone()
+            .into_iter()
+            .filter(|c| c.keys.contains(key))
+            .collect()
     }
 }
 
