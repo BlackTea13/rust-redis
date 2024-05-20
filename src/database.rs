@@ -1,7 +1,7 @@
 use bytes::Bytes;
 use goms_mini_project1::{Result, NUM_DB};
 use std::collections::{HashMap, VecDeque};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use tokio::sync::mpsc;
 
 #[derive(Debug)]
@@ -163,7 +163,7 @@ impl State {
 #[derive(Debug)]
 pub struct Database {
     pub database: Arc<Mutex<State>>,
-    pub clients: Arc<Mutex<VecDeque<Arc<Client>>>>,
+    pub clients: Arc<RwLock<HashMap<String, VecDeque<Client>>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -176,14 +176,14 @@ pub enum ClientState {
 pub struct Client {
     pub client_state: ClientState,
     pub keys: VecDeque<String>,
-    pub sender: mpsc::Sender<Bytes>,
+    pub sender: mpsc::Sender<(String, Bytes)>,
 }
 
 impl Database {
     pub fn new() -> Database {
         Database {
             database: Arc::new(Mutex::new(State::new())),
-            clients: Arc::new(Mutex::new(VecDeque::new())),
+            clients: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -218,18 +218,9 @@ impl Database {
         self.database.lock().unwrap().exists(key)
     }
 
-    pub fn is_clients_empty(&self) -> bool {
-        self.clients.lock().unwrap().is_empty()
-    }
-
-    pub fn get_clients_waiting_for_key(&self, key: &String) -> VecDeque<Arc<Client>> {
-        self.clients
-            .lock()
-            .unwrap()
-            .clone()
-            .into_iter()
-            .filter(|c| c.keys.contains(key))
-            .collect()
+    pub fn is_clients_empty_for_key(&self, key: &String) -> bool {
+        let read_lock = self.clients.read().unwrap();
+        !read_lock.contains_key(key) || (read_lock.get(key).iter().len() <= 0)
     }
 }
 

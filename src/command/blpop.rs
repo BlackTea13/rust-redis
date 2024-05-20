@@ -49,8 +49,19 @@ impl BLPop {
                 keys: VecDeque::from(self.keys.clone()),
                 sender: tx,
             };
-
-            database.clients.lock().unwrap().push_back(client.into());
+            {
+                let mut client_write_lock = database.clients.write().unwrap();
+                for key in self.keys.iter() {
+                    client_write_lock
+                        .entry(key.into())
+                        .and_modify(|d| d.push_back(client.clone()))
+                        .or_insert({
+                            let mut deque = VecDeque::new();
+                            deque.push_back(client.clone());
+                            deque
+                        });
+                }
+            }
 
             let timeout_duration = if self.timeout <= 0.0 {
                 Duration::MAX
@@ -59,12 +70,14 @@ impl BLPop {
             };
 
             let response = match timeout(timeout_duration, rx.recv()).await {
-                Ok(element) => {
+                Ok(Some(element)) => {
+                    let (key, value) = element;
                     return Ok(Frame::Array(vec![
-                        Frame::Bulk(self.keys[key_index.unwrap()].clone().into()),
-                        Frame::Bulk(element.unwrap()),
+                        Frame::Bulk(key.into()),
+                        Frame::Bulk(value),
                     ]));
                 }
+                Ok(None) => return Err("Received `None` type from sender".into()),
                 Err(_) => Ok(Frame::Null),
             };
 

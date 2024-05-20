@@ -36,12 +36,14 @@ impl LPush {
     pub async fn apply(&self, database: Arc<Database>) -> Result<Frame> {
         let mut elements = self.elements.clone();
 
-        if database.is_clients_empty() {
+        if database.is_clients_empty_for_key(&self.key) {
             let _ = database.lpush(&self.key, &elements.clone().into_iter().collect())?;
             return Ok(Frame::Integer(self.elements.len() as u64));
         } else {
             let work: Vec<(_, _)> = {
-                let mut waiters = database.get_clients_waiting_for_key(&self.key);
+                let mut waiters = database.clients.write().unwrap();
+                let waiters = waiters.get_mut(&self.key).unwrap();
+
                 let end = min(waiters.len(), self.elements.len());
                 let jobs = (0..end)
                     .map(|_| {
@@ -50,14 +52,15 @@ impl LPush {
                             ClientState::BLPOP => elements.pop_front().unwrap(),
                             ClientState::BRPOP => elements.pop_back().unwrap(),
                         };
-                        (client.sender.clone(), element)
+                        (client, element)
                     })
                     .collect();
                 jobs
             };
 
-            for (sender, elem) in work {
-                let _ = sender.send(elem.clone()).await;
+            for (client, elem) in work {
+                let _ = client.sender.send((self.key.clone(), elem.clone())).await;
+                drop(client.sender);
             }
 
             let _ = database.lpush(&self.key, &elements.clone().into_iter().collect())?;
