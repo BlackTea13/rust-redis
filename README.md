@@ -1,3 +1,20 @@
-[![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-24ddc0f5d75046c5622901739e7c5dd533143b0c8e959d652212380cedb1ea36.svg)](https://classroom.github.com/a/7fqHrLFg)
+# Rust-Redis
 
-Thank you to Ochawin for the wonderful python testing script <3.
+A redis clone built in Rust. It supports the RESP2 protocol only and a limited number of commands. The project uses [Async Rust](https://rust-lang.github.io/async-book/) for performance multi-client handling. 
+
+### Supported Commands
+
+- SELECT
+- PING
+- GET
+- SET
+- EXISTS
+- LPUSH
+- RPUSH
+- BLPOP
+- RLPOP
+
+See the command spec and documentation [here](https://redis.io/docs/latest/commands/).
+
+
+
