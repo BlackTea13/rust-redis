@@ -1,5 +1,5 @@
 use crate::frame::Frame;
-use goms_mini_project1::Result;
+use crate::Result;
 
 #[derive(Debug)]
 pub struct Unknown {

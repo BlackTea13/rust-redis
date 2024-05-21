@@ -1,6 +1,10 @@
-use goms_mini_project1;
+use goms_mini_project1::server::start_server;
 
-#[test]
-fn coolness() {
-    assert_eq!(4, 2 + 2);
+#[cfg(test)]
+mod ping_tests {
+
+    #[test]
+    fn coolness() {
+        assert_eq!(4, 2 + 2);
+    }
 }

@@ -2,7 +2,7 @@ use crate::database::Database;
 use crate::frame::Frame;
 use crate::parse::Parse;
 use bytes::Bytes;
-use goms_mini_project1::Result;
+use crate::Result;
 use std::sync::Arc;
 
 #[derive(Debug)]

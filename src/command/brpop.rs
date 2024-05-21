@@ -1,7 +1,7 @@
 use crate::database::{Client, ClientState, Database};
 use crate::frame::Frame;
 use crate::parse::Parse;
-use goms_mini_project1::Result;
+use crate::Result;
 use std::collections::VecDeque;
 use std::sync::Arc;
 use tokio::sync::mpsc;
@@ -26,7 +26,7 @@ impl BRPop {
                 if let Ok(timeout) = timeout_string {
                     return Ok(BRPop {
                         keys: maybe_keys,
-                        timeout: timeout,
+                        timeout,
                     });
                 } else {
                     return Err("Error, timeout needs to be a float".into());

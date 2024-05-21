@@ -1,5 +1,5 @@
 use bytes::Bytes;
-use goms_mini_project1::{Result, NUM_DB};
+use crate::{Result, NUM_DB};
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex, RwLock};
 use tokio::sync::mpsc;

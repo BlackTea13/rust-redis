@@ -1,7 +1,7 @@
 use crate::frame::Error::Incomplete;
 use crate::frame::Frame;
+use crate::Result;
 use bytes::{Buf, BytesMut};
-use goms_mini_project1::Result;
 use std::io::Cursor;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufWriter};
 use tokio::net::TcpStream;

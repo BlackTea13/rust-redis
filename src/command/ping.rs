@@ -1,7 +1,7 @@
 use crate::frame::Frame;
 use crate::parse::{Parse, ParseError};
 use bytes::Bytes;
-use goms_mini_project1::Result;
+use crate::Result;
 
 #[derive(Debug, Default)]
 pub struct Ping {
