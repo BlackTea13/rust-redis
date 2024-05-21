@@ -37,25 +37,27 @@ impl LPush {
         let mut elements = self.elements.clone();
 
         if database.is_clients_empty_for_key(&self.key) {
-            let _ = database.lpush(&self.key, &elements.clone().into_iter().collect())?;
-            return Ok(Frame::Integer(self.elements.len() as u64));
+            database.lpush(&self.key, &elements.clone().into_iter().collect())?;
+            Ok(Frame::Integer(self.elements.len() as u64))
         } else {
             let work: Vec<(_, _)> = {
                 let mut waiters = database.clients.write().unwrap();
                 let waiters = waiters.get_mut(&self.key).unwrap();
 
                 let end = min(waiters.len(), self.elements.len());
-                let jobs = (0..end)
-                    .map(|_| {
-                        let client = waiters.pop_front().unwrap();
+                 (0..end)
+                    .map_while(|_| if !waiters.is_empty() {
+                        let mut client = waiters.pop_front().unwrap();
+                        while client.sender.is_closed() {
+                            client = waiters.pop_front().unwrap();
+                        }
                         let element = match client.client_state {
                             ClientState::BLPOP => elements.pop_front().unwrap(),
                             ClientState::BRPOP => elements.pop_back().unwrap(),
                         };
-                        (client, element)
-                    })
-                    .collect();
-                jobs
+                        Some((client, element))
+                    } else {None})
+                    .collect()
             };
 
             for (client, elem) in work {
@@ -63,8 +65,8 @@ impl LPush {
                 drop(client.sender);
             }
 
-            let _ = database.lpush(&self.key, &elements.clone().into_iter().collect())?;
-            return Ok(Frame::Integer(self.elements.len() as u64));
+            database.lpush(&self.key, &elements.clone().into_iter().collect())?;
+            Ok(Frame::Integer(self.elements.len() as u64))
         }
     }
 }
