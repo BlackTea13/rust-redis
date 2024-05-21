@@ -23,13 +23,13 @@ impl BLPop {
                 maybe_keys.push(element);
             } else {
                 let timeout_string = maybe_keys.pop().unwrap().parse::<f64>();
-                if let Ok(timeout) = timeout_string {
-                    return Ok(BLPop {
+                return if let Ok(timeout) = timeout_string {
+                    Ok(BLPop {
                         keys: maybe_keys,
-                        timeout: timeout,
-                    });
+                        timeout,
+                    })
                 } else {
-                    return Err("Error, timeout needs to be a float".into());
+                    Err("Error, timeout needs to be a float".into())
                 }
             }
         }
@@ -42,13 +42,14 @@ impl BLPop {
     pub async fn apply(&self, database: Arc<Database>) -> Result<Frame> {
         let key_index = self.index_of_first_exist(database.clone());
 
-        if matches!(key_index, None) {
+        if key_index.is_none() {
             let (tx, mut rx) = mpsc::channel(1);
             let client = Client {
                 client_state: ClientState::BLPOP,
                 keys: VecDeque::from(self.keys.clone()),
                 sender: tx,
             };
+            
             {
                 let mut client_write_lock = database.clients.write().unwrap();
                 for key in self.keys.iter() {
@@ -69,30 +70,28 @@ impl BLPop {
                 Duration::from_millis(self.timeout as u64)
             };
 
-            let response = match timeout(timeout_duration, rx.recv()).await {
+            match timeout(timeout_duration, rx.recv()).await {
                 Ok(Some(element)) => {
                     let (key, value) = element;
-                    return Ok(Frame::Array(vec![
+                    Ok(Frame::Array(vec![
                         Frame::Bulk(key.into()),
                         Frame::Bulk(value),
-                    ]));
+                    ]))
                 }
-                Ok(None) => return Err("Received `None` type from sender".into()),
+                Ok(None) => Err("Received `None` type from sender".into()),
                 Err(_) => Ok(Frame::Null),
-            };
-
-            return response;
+            }
         } else {
             let key_index = key_index.unwrap();
             let key = &self.keys[key_index];
             let result = database.lpop(key)?;
             if let Some(val) = result {
-                return Ok(Frame::Array(vec![
+                Ok(Frame::Array(vec![
                     Frame::Bulk(key.clone().into()),
                     Frame::Bulk(val),
-                ]));
+                ]))
             } else {
-                return Err("Key exists but lpop failed".into());
+                Err("Key exists but lpop failed".into())
             }
         }
     }
