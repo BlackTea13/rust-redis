@@ -5,7 +5,7 @@ use std::io::Cursor;
 use std::num::TryFromIntError;
 use std::string::FromUtf8Error;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Frame {
     Simple(String),
     Error(String),
