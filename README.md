@@ -2,6 +2,8 @@
 
 A redis clone built in Rust. It supports the RESP2 protocol only and a limited number of commands. The project uses [Async Rust](https://rust-lang.github.io/async-book/) for performance multi-client handling. 
 
+Works with redis-cli.
+
 ### Supported Commands
 
 - SELECT
