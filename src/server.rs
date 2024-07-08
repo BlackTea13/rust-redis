@@ -3,9 +3,9 @@ use crate::connection::Connection;
 use crate::database::{Database, Databases};
 use crate::frame::Frame;
 use crate::handler::{Handler, Payload};
-use crate::{Result, IP, PORT, NUM_DB};
-use tokio::net::{TcpListener};
+use crate::{Result, IP, NUM_DB, PORT};
 use std::sync::Arc;
+use tokio::net::TcpListener;
 use tokio::sync::{mpsc, oneshot};
 
 pub async fn start_server() -> Result<()> {
@@ -27,6 +27,7 @@ pub async fn start_server() -> Result<()> {
     let db_senders: Vec<mpsc::Sender<Payload>> = db_senders;
 
     println!("Welcome to Robert's Redis Rumble!");
+    println!("Open on {address}");
     println!("Ready for connections...");
 
     loop {
@@ -67,6 +68,7 @@ async fn process(mut handler: Handler, senders: Vec<mpsc::Sender<Payload>>) -> R
         // handle select
         if let Command::SELECT(cmd) = command {
             handler.sender = senders[cmd.index as usize].clone();
+            handler.connection.write_frame(&Frame::Simple(String::from("OK"))).await?;
             continue;
         }
 
@@ -88,7 +90,11 @@ async fn serve(database: Arc<Database>, mut receiver: mpsc::Receiver<Payload>) {
 
         let db_clone = database.clone();
         tokio::spawn(async move {
-            let response = payload.command.apply(db_clone).await.unwrap_or_else(|e| Frame::Error(e.to_string()));
+            let response = payload
+                .command
+                .apply(db_clone)
+                .await
+                .unwrap_or_else(|e| Frame::Error(e.to_string()));
             let _ = payload.sender.send(response);
         });
     }
